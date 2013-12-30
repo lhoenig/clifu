@@ -4,6 +4,11 @@ clifu
 Interface to the commandlinefu.com API, written in C and using Ncurses
 
 BETA - there is still a memory bug in the parse_page_content function. Filling up the results array is not reliable yet.
+  
+## Requirements  
+* curl
+* ncurses
+* gcc
 
 ## Building  
   
