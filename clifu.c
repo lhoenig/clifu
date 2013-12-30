@@ -239,7 +239,7 @@ int setup_menu(struct page *p) {
     unpost_menu(menu);
     free_menu(menu);
     int n;
-    for (n = 0; i <= n_items; ++i) {
+    for (n = 0; i <= n_items; ++n) {
         free_item(items[i]);  
     }
     endwin();
