@@ -43,15 +43,17 @@ int main(int argc, char *argv[]) {
       //puts(content);
 
     page parsed_page = parse_page_content(content);
-    //printf("entries: %i\n", parsed_page.entries);
-
-    int sel_cmd = setup_menu(&parsed_page);
-    if (sel_cmd)
-      printf("\n%s\n\n", parsed_page.commands[sel_cmd]);
+    
+    if (parsed_page.entries > 0) {  
+      int sel_cmd = setup_menu(&parsed_page);
+      if (sel_cmd != -1)
+        printf("\n%s\n\n", parsed_page.commands[sel_cmd]);
+    } else {
+        printf("No match found\n");
+    }
 
     free(url);
     free(content);
-
     return 0;
   
   } else { 
@@ -196,22 +198,16 @@ int setup_menu(struct page *p) {
   int n_items = p->entries;
 
   items = (ITEM **)calloc(n_items + 1, sizeof(ITEM *));
-  
-  //wprintw(stdscr, "entries: %i\n\n", n_items);
-  
+    
   for(int i = 0; i < n_items; ++i) {
           
-          //items[i] = new_item("Test", "");
           const char *title = p->descriptions[i];
-          //str cpy(title, p->descriptions[i]);
           items[i] = new_item(title, "");
           
           if (items[i] == NULL) {
             wprintw(stdscr, "FATAL: error creating menu item %i", i);
             break;
           }
-
-          //wprintw(stdscr, "%i\t\"%s\"\n", i, p->descriptions[i]);
   }
   items[n_items] = 0;
 
@@ -236,6 +232,7 @@ int setup_menu(struct page *p) {
             break;
     }
   } 
+  if (c == 113) selected_cmd = -1;
 
   cleanup_menu:
     unpost_menu(menu);
