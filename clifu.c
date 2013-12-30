@@ -238,7 +238,8 @@ int setup_menu(struct page *p) {
   cleanup_menu:
     unpost_menu(menu);
     free_menu(menu);
-    for (int i = 0; i <= n_items; ++i) {
+    int n;
+    for (n = 0; i <= n_items; ++i) {
         free_item(items[i]);  
     }
     endwin();
