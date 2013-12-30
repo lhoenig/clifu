@@ -198,8 +198,9 @@ int setup_menu(struct page *p) {
   int n_items = p->entries;
 
   items = (ITEM **)calloc(n_items + 1, sizeof(ITEM *));
-    
-  for(int i = 0; i < n_items; ++i) {
+  
+  int i;
+  for(i = 0; i < n_items; ++i) {
           
           const char *title = p->descriptions[i];
           items[i] = new_item(title, "");
