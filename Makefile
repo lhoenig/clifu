@@ -1,8 +1,8 @@
 all:
-	gcc -Wall -lncurses -lmenu clifu.c -o clifu
+	gcc -Wall clifu.c -o clifu -lncurses -lmenu
 
 debug:
-	gcc -Wall -g -lncurses -lmenu clifu.c -o clifu
+	gcc -Wall -g clifu.c -o clifu -lncurses -lmenu
 
 install:
 	mv clifu /usr/local/bin
