@@ -174,6 +174,7 @@ struct page parse_page_content(const char *to_match) {
                   //ret_page.commands[c] = malloc(strlen(as_pointer));
                   //strcpy(ret_page.commands[c], as_pointer);
                 }
+                free(as_pointer);
             }
         }
         p += m[0].rm_eo;
