@@ -7,7 +7,7 @@ BETA - there is still a memory bug in the parse_page_content function. Filling u
   
 ## Requirements  
 * curl
-* ncurses
+* ncurses (on Linux: libncurses5-dev package)
 * gcc
 
 ## Building  
