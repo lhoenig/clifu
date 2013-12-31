@@ -3,18 +3,18 @@
 #include <unistd.h>
 #include <string.h>
 #include <regex.h>
+#include <menu.h>
 #include "errdie.h"
 #include "cmd_output.h"
 #include "base64.h"
 
-#include <curses.h>
-#include <menu.h>
+#define MAX_ENTRIES  100
 
-#define MAX_ENTRIES      100
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 
-// core data structure for a parsed API page
-
+// data structure for a parsed API page
 typedef struct page {
   char *commands[MAX_ENTRIES];
   char *descriptions[MAX_ENTRIES];
@@ -26,7 +26,6 @@ char *construct_url(char *);
 char *page_content(char *);
 page parse_page_content(const char *);
 int setup_menu(page *);
-
 char *substr(char *, int, int, char *);
 void print_usage(char *);
 
@@ -36,24 +35,30 @@ int main(int argc, char *argv[]) {
 	// check if search pattern is supplied
   if (argc >= 2) {
     
+    // request url
     char *url = construct_url(argv[1]);
-      //puts(url);
-    
+    // curl the request url
     char *content = page_content(url);
-      //puts(content);
-
+    // put matches into parsed_page
     page parsed_page = parse_page_content(content);
     
     if (parsed_page.entries > 0) {  
       int sel_cmd = setup_menu(&parsed_page);
       if (sel_cmd != -1)
-        printf("\n%s\n\n", parsed_page.commands[sel_cmd]);
+        printf("\n%s%s%s\n\n", ANSI_COLOR_CYAN, parsed_page.commands[sel_cmd], ANSI_COLOR_RESET);
+        //printf("\n%s\n\n", parsed_page.commands[sel_cmd]);
     } else {
         printf("No match found\n");
     }
 
     free(url);
     free(content);
+    int i;
+    for (i = 0; i < parsed_page.entries; ++i) {
+      free(parsed_page.commands[i]);
+      free(parsed_page.descriptions[i]);
+    }
+
     return 0;
   
   } else { 
@@ -121,7 +126,6 @@ char *page_content(char *url) {
 struct page parse_page_content(const char *to_match) {
     
     struct page ret_page;                   // returned page structure
-
     regex_t r;                              // regex object
     const char *expr = "(#.+\n)(.+)";       // expression to match against
     
@@ -141,9 +145,7 @@ struct page parse_page_content(const char *to_match) {
         
         for (i = 0; i < MAX_ENTRIES; i++) {
             
-            if (m[i].rm_so == -1) {
-                break;  // no more matches
-            }
+            if (m[i].rm_so == -1) break;
             
             int start = m[i].rm_so + (p - to_match);
             int finish = m[i].rm_eo + (p - to_match);
@@ -155,10 +157,11 @@ struct page parse_page_content(const char *to_match) {
                 char stripped[len + 1];
                 strncpy(stripped, fstring, len);
                 stripped[len] = '\0';
+                
                 char *as_pointer = malloc(strlen(stripped)); // make consistent
                 strcpy(as_pointer, stripped);
 
-                if (i == 1) {   /* description */
+                if (i == 1) {   // description
                   char *remove_front = malloc(strlen(as_pointer) -2);
                   substr(as_pointer, 2, strlen(as_pointer) - 3, remove_front);
                   //printf("%s\n", remove_front);
@@ -166,7 +169,7 @@ struct page parse_page_content(const char *to_match) {
                   //ret_page.descriptions[c] = malloc(strlen(remove_front));
                   //strcpy(ret_page.descriptions[c], remove_front);
                 }
-                if (i == 2) {   /* command */
+                if (i == 2) {   // command 
                   ret_page.commands[c] = as_pointer;
                   //ret_page.commands[c] = malloc(strlen(as_pointer));
                   //strcpy(ret_page.commands[c], as_pointer);
@@ -186,63 +189,92 @@ struct page parse_page_content(const char *to_match) {
 
 // setup the ncurses menu
 
-int setup_menu(struct page *p) {
+int setup_menu(page *p) {
   
-  initscr();
-  cbreak();
-  keypad(stdscr, TRUE);
-  noecho();
-
   ITEM **items;
   MENU *menu;
   int n_items = p->entries;
-
   items = (ITEM **)calloc(n_items + 1, sizeof(ITEM *));
   
   int i;
-  for(i = 0; i < n_items; ++i) {
-          
+  for (i = 0; i < n_items; ++i) {
           const char *title = p->descriptions[i];
           items[i] = new_item(title, "");
           
           if (items[i] == NULL) {
-            wprintw(stdscr, "FATAL: error creating menu item %i", i);
+            error_die("Error creating menu item");
             break;
           }
   }
   items[n_items] = 0;
 
+  // start ncurses
+  initscr();
+  cbreak();
+  keypad(stdscr, TRUE);
+  noecho();
+
+  // create the menu
   menu = new_menu(items);
+  set_menu_format(menu, n_items, 1);
+  set_menu_mark(menu, " ");
   post_menu(menu);
   refresh();
 
   int selected_cmd = 0;
-  int c;  // keycode stored here
-  while((c = wgetch(stdscr)) != 113) {
-     switch(c)
-      { 
+  int c ;  // keycode stored here
+  int end = 0;
+  
+  // menu key actions
+  while(end == 0) {
+    c = wgetch(stdscr);
+    switch(c) { 
         case KEY_DOWN:
             menu_driver(menu, REQ_DOWN_ITEM);
             break;
         case KEY_UP:
             menu_driver(menu, REQ_UP_ITEM);
             break;
-        case 0xA:
+        case KEY_RIGHT: {
+            int index = item_index(current_item(menu));
+            char *n_title = p->commands[index];
+            items[index] = new_item(n_title, "");
+            unpost_menu(menu);
+            set_menu_items(menu, items);
+            post_menu(menu);
+            set_current_item(menu, items[index]);
+            refresh();
+            break; }
+        case KEY_LEFT: {
+            int index = item_index(current_item(menu));
+            char *n_title = p->descriptions[index];
+            items[index] = new_item(n_title, "");
+            unpost_menu(menu);
+            set_menu_items(menu, items);
+            post_menu(menu);
+            set_current_item(menu, items[index]);
+            refresh();
+            break; }
+        case 0x71:   // q
+            selected_cmd = -1;
+            end = 1;
+            break;
+        case 0xA:   // enter
             selected_cmd = item_index(current_item(menu));
-            goto cleanup_menu;
+            end = 1;
             break;
     }
   } 
-  if (c == 113) selected_cmd = -1;
 
-  cleanup_menu:
-    unpost_menu(menu);
-    free_menu(menu);
-    int n;
-    for (n = 0; i <= n_items; ++n) {
-        free_item(items[i]);  
-    }
-    endwin();
+  // cleanup the menu
+  unpost_menu(menu);
+  free_menu(menu);
+  int n;
+  for (n = 0; i < n_items; ++n) {
+      free_item(items[i]);  
+  }
+  free(items);
+  endwin();
 
   return selected_cmd;
 }
