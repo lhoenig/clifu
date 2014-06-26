@@ -16,6 +16,7 @@
 #define MAX_ENTRIES  100
 
 #define ANSI_CYAN    "\x1b[36m"
+#define ANSI_LGREEN  "\x1b[92m"
 #define ANSI_RESET   "\x1b[0m"
 
 
@@ -53,15 +54,15 @@ int main(int argc, char *argv[]) {
     // put matches into parsed_page
     parse_page(content);
 
-    //printf("After parse:\n");
-    //dump_page(0, parsed_page.entries - 1);
-
     if (parsed_page.entries > 0) {  
       int sel_cmd = setup_menu();
       
-      //puts(" ");
       if (sel_cmd != -1)
-        printf("\n%s%s%s\n\n", ANSI_CYAN, parsed_page.commands[sel_cmd], ANSI_RESET);
+        printf("\n%s%s\n%s%s%s\n\n", ANSI_LGREEN, 
+                                     parsed_page.descriptions[sel_cmd], 
+                                     ANSI_CYAN,
+                                     parsed_page.commands[sel_cmd],
+                                     ANSI_RESET);
 
     } else printf("No matches found\n");
     
@@ -161,7 +162,6 @@ void parse_page(const char *to_match) {
         int start = m[i].rm_so + (p - to_match);
         int finish = m[i].rm_eo + (p - to_match);
         int len = (finish - start);
-        //printf("start= %i finish= %i len= %i\n", start, finish, len);
         const char *fstring = to_match + start;
         
         char *match_str = malloc(len + 1);
@@ -179,9 +179,8 @@ void parse_page(const char *to_match) {
           parsed_page.descriptions[c] = remove_front;
         }
         else if (i == 2) {  // command 
-        printf("%s\n", match_str);   // bug at least here
-
-          parsed_page.commands[c] = match_str;     // TODO check if entry is already contained
+          // TODO check if entry is already contained
+          parsed_page.commands[c] = match_str;     
         }
       }
       p += m[0].rm_eo;  // advance string pointer
@@ -291,8 +290,6 @@ int setup_menu(void) {
 
 
 
-
-
 void dump_page(int a, int b, int mode) {
   int i;
   if (mode == 0 || mode == 2) {
@@ -306,18 +303,6 @@ void dump_page(int a, int b, int mode) {
     }
   } 
 }
-
-
-
-char *substr(char *input, int offset, int len, char *dest) {
-  int input_len = strlen(input);
-  if (offset + len > input_len) {
-     return 0;
-  }
-  strncpy(dest, input + offset, len);
-  return dest;
-}
-
 
 
 void print_usage(char *arg0) {
