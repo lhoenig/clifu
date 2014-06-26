@@ -1,7 +1,7 @@
 clifu
 =====
 
-Command line interface for commandlinefu.com, written in C and using curses
+Command line interface for commandlinefu.com, written in C and using curses.
   
 ## Dependencies  
 * curl
@@ -10,9 +10,10 @@ Command line interface for commandlinefu.com, written in C and using curses
 
 ## Building  
   
-`make` `make debug`  
+`make`  
+`make install`  
   
-## Usage  
+## Using    
 
 `./fu sed`  
   
