@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 
 #ifndef ERRDIE_H
 #define ERRDIE_H

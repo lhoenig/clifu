@@ -196,9 +196,6 @@ void parse_page(const char *to_match) {
 
 int setup_menu(void) {
   
-  //dump_page(0,0);
-  //return -1;
-
   ITEM **items;
   MENU *menu;
   int n_items = parsed_page.entries;
