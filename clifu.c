@@ -233,15 +233,36 @@ int setup_menu(void) {
   int selected_cmd = 0;
   int c;  // keycode stored here
   int end = 0;
+  int rst = 0;
   
   // menu key actions
   while(!end) {
     c = wgetch(stdscr);
     switch(c) { 
         case KEY_DOWN:
+            if (rst) {
+              int index = item_index(current_item(menu));
+              char *n_title = parsed_page.descriptions[index];
+              items[index] = new_item(n_title, "");
+              unpost_menu(menu);
+              set_menu_items(menu, items);
+              post_menu(menu);
+              set_current_item(menu, items[index]);
+              rst = 0;
+            } 
             menu_driver(menu, REQ_DOWN_ITEM);
             break;
         case KEY_UP:
+            if (rst) {
+              int index = item_index(current_item(menu));
+              char *n_title = parsed_page.descriptions[index];
+              items[index] = new_item(n_title, "");
+              unpost_menu(menu);
+              set_menu_items(menu, items);
+              post_menu(menu);
+              set_current_item(menu, items[index]);
+              rst = 0;
+            } 
             menu_driver(menu, REQ_UP_ITEM);
             break;
         case KEY_RIGHT: {
@@ -252,6 +273,7 @@ int setup_menu(void) {
             set_menu_items(menu, items);
             post_menu(menu);
             set_current_item(menu, items[index]);
+            rst = 1;
             refresh();
             break; }
         case KEY_LEFT: {
@@ -262,6 +284,7 @@ int setup_menu(void) {
             set_menu_items(menu, items);
             post_menu(menu);
             set_current_item(menu, items[index]);
+            rst = 0;
             refresh();
             break; }
         case 0x71:   // q
