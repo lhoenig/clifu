@@ -3,7 +3,7 @@ clifu
 
 Command line interface for commandlinefu.com, written in C and using curses
   
-## Dependecies  
+## Dependencies  
 * curl
 * ncurses
 * gcc
