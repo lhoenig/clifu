@@ -4,8 +4,8 @@
 #ifndef CMDOUTPUT_H
 #define CMDOUTPUT_H
 
-#define STRIP_OUTPUT       1
-#define DONT_STRIP_OUTPUT  0
+#define STRIP       1
+#define DONT_STRIP  0
 
 
 // get output of cmd, strip newline if (cut == STRIP_OUTPUT)
@@ -31,7 +31,7 @@ char *command_output(char *cmd, int cut) {
   pclose(pipe);
 
   // cut off last character (newline)
-  if (cut == STRIP_OUTPUT) 
+  if (cut == STRIP) 
     c[strlen(c) - 1] = '\0';
   
   free(tmp);

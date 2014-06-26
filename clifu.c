@@ -1,3 +1,8 @@
+// clifu.c 
+//
+// ncurses interface to commandlinefu.com
+// github.com/rub1k/clifu
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -5,13 +10,13 @@
 #include <regex.h>
 #include <menu.h>
 #include "errdie.h"
-#include "cmd_output.h"
+#include "cmdout.h"
 #include "base64.h"
 
 #define MAX_ENTRIES  100
 
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_CYAN    "\x1b[36m"
+#define ANSI_RESET   "\x1b[0m"
 
 
 // data structure for a parsed API page
@@ -22,12 +27,17 @@ typedef struct page {
 } page;
 
 
+// global page object
+page parsed_page;
+
+
 char *construct_url(char *);
 char *page_content(char *);
-page parse_page_content(const char *);
-int setup_menu(page *);
+void parse_page(const char *);
+int setup_menu(void);
 char *substr(char *, int, int, char *);
 void print_usage(char *);
+void dump_page(int, int, int);
 
 
 int main(int argc, char *argv[]) {
@@ -35,35 +45,37 @@ int main(int argc, char *argv[]) {
 	// check if search pattern is supplied
   if (argc >= 2) {
     
-    // request url
     char *url = construct_url(argv[1]);
+
     // curl the request url
     char *content = page_content(url);
-    // put matches into parsed_page
-    page parsed_page = parse_page_content(content);
-    
-    if (parsed_page.entries > 0) {  
-      int sel_cmd = setup_menu(&parsed_page);
-      if (sel_cmd != -1)
-        printf("\n%s%s%s\n\n", ANSI_COLOR_CYAN, parsed_page.commands[sel_cmd], ANSI_COLOR_RESET);
-        //printf("\n%s\n\n", parsed_page.commands[sel_cmd]);
-    } else {
-        printf("No match found\n");
-    }
 
+    // put matches into parsed_page
+    parse_page(content);
+
+    //printf("After parse:\n");
+    //dump_page(0, parsed_page.entries - 1);
+
+    if (parsed_page.entries > 0) {  
+      int sel_cmd = setup_menu();
+      
+      //puts(" ");
+      if (sel_cmd != -1)
+        printf("\n%s%s%s\n\n", ANSI_CYAN, parsed_page.commands[sel_cmd], ANSI_RESET);
+
+    } else printf("No matches found\n");
+    
     free(url);
     free(content);
-    int i;
-    for (i = 0; i < parsed_page.entries; ++i) {
+    for (int i = 0; i < parsed_page.entries; ++i) {
       free(parsed_page.commands[i]);
       free(parsed_page.descriptions[i]);
     }
-
     return 0;
   
   } else { 
     print_usage(argv[0]);
-    return(0);
+    return 1;
   }
 }
 
@@ -91,6 +103,7 @@ char *construct_url(char *grep) {
 	strcat(url_with_b64, "/plaintext");
 
 	char *c = malloc(len2);
+  memset(c, 0, len2);
 	strncpy(c, url_with_b64, len2);
   free(b64_encoded);
 	return c;
@@ -103,17 +116,19 @@ char *construct_url(char *grep) {
 char *page_content(char *url) {
 
   // construct curl command
-  char *curl = command_output("which curl", STRIP_OUTPUT);
+  char *curl = command_output("which curl", STRIP);
   if (strlen(curl) == 0) error_die("No version of curl found");
 
   const char *flags = " -s ";
-  char *cmd = malloc(strlen(curl) + strlen(flags) + strlen(url));
+  int l = strlen(curl) + strlen(flags) + strlen(url);
+  char *cmd = malloc(l);
+  memset(cmd, 0, l);
   strcpy(cmd, curl);
   strcat(cmd, flags);
   strcat(cmd, url);
   
   // run command and return output
-  char *out = command_output(cmd, DONT_STRIP_OUTPUT);
+  char *out = command_output(cmd, DONT_STRIP);
   free(cmd);
   free(curl);
   return out;
@@ -121,88 +136,82 @@ char *page_content(char *url) {
 
 
 
-// return structure with regex-parsed commands and descriptions
+// fill parsed_page with regex-parsed commands and descriptions
 
-struct page parse_page_content(const char *to_match) {
+void parse_page(const char *to_match) {
     
-    struct page ret_page;                   // returned page structure
     regex_t r;                              // regex object
-    const char *expr = "(#.+\n)(.+)";       // expression to match against
+    const char *expr = "(#.+\n)(.+)";       // single entry representation
     
     // compile regex and check success
     int ret_comp = regcomp(&r, expr, REG_EXTENDED|REG_NEWLINE);
-    if(ret_comp) error_die("Could not compile regex");
+    if (ret_comp) error_die("Could not compile regex");
 
-    const char *p = to_match;     // 'p' is a pointer into the string which points to the end of the previous match
-    regmatch_t m[MAX_ENTRIES];    // contains the matches found
-    int c = 0;                    // number of matches
+    const char *p = to_match;   // 'p' is a pointer into the string which points to the end of the previous match
+    regmatch_t m[3];            // pmatch array     
+    int c = 0;                  // number of matches
 
-    while (1) {
-
-        int i = 0;
-        int nomatch = regexec(&r, p, MAX_ENTRIES, m, 0);
-        if (nomatch) break;
+    while (c < MAX_ENTRIES && (regexec(&r, p, 3, m, 0) != REG_NOMATCH)) {
+      
+      if (m[0].rm_so == -1) continue;
+      
+      for (int i = 1; i <= 2; i++) {
         
-        for (i = 0; i < MAX_ENTRIES; i++) {
-            
-            if (m[i].rm_so == -1) break;
-            
-            int start = m[i].rm_so + (p - to_match);
-            int finish = m[i].rm_eo + (p - to_match);
-            
-            if (i != 0) {
+        // extract matched substring
+        int start = m[i].rm_so + (p - to_match);
+        int finish = m[i].rm_eo + (p - to_match);
+        int len = (finish - start);
+        //printf("start= %i finish= %i len= %i\n", start, finish, len);
+        const char *fstring = to_match + start;
+        
+        char *match_str = malloc(len + 1);
+        memset(match_str, 0, len + 1);
+        strncpy(match_str, fstring, len);
+        match_str[len] = '\0';
 
-                int len = (finish - start);
-                const char *fstring = to_match + start;
-                char stripped[len + 1];
-                strncpy(stripped, fstring, len);
-                stripped[len] = '\0';
-                
-                char *as_pointer = malloc(strlen(stripped)); // make consistent
-                strcpy(as_pointer, stripped);
-
-                if (i == 1) {   // description
-                  char *remove_front = malloc(strlen(as_pointer) -2);
-                  substr(as_pointer, 2, strlen(as_pointer) - 3, remove_front);
-                  //printf("%s\n", remove_front);
-                  ret_page.descriptions[c] = remove_front;
-                  //ret_page.descriptions[c] = malloc(strlen(remove_front));
-                  //strcpy(ret_page.descriptions[c], remove_front);
-                }
-                if (i == 2) {   // command 
-                  ret_page.commands[c] = as_pointer;
-                  //ret_page.commands[c] = malloc(strlen(as_pointer));
-                  //strcpy(ret_page.commands[c], as_pointer);
-                }
-                free(as_pointer);
-            }
+        
+        if (i == 1) {       // description       
+          int len = strlen(match_str) - 3;
+          char *remove_front = malloc(len + 1);
+          memset(remove_front, 0, len + 1);
+          strncpy(remove_front, match_str + 2, len);
+          remove_front[len + 1] = '\0';
+          parsed_page.descriptions[c] = remove_front;
         }
-        p += m[0].rm_eo;
-        c++;
-    }
+        else if (i == 2) {  // command 
+        printf("%s\n", match_str);   // bug at least here
+
+          parsed_page.commands[c] = match_str;     // TODO check if entry is already contained
+        }
+      }
+      p += m[0].rm_eo;  // advance string pointer
+      c++;
+    }        
     regfree(&r);
-    ret_page.entries = c - 1;
-    
-    return ret_page;
+    parsed_page.entries = c;
 }
 
 
 
-// setup the ncurses menu
+// create the ncurses menu
 
-int setup_menu(page *p) {
+int setup_menu(void) {
   
+  //dump_page(0,0);
+  //return -1;
+
   ITEM **items;
   MENU *menu;
-  int n_items = p->entries;
+  int n_items = parsed_page.entries;
   items = (ITEM **)calloc(n_items + 1, sizeof(ITEM *));
   
   int i;
   for (i = 0; i < n_items; ++i) {
-          const char *title = p->descriptions[i];
+          const char *title = parsed_page.descriptions[i];
           items[i] = new_item(title, "");
           
           if (items[i] == NULL) {
+            printf("i = %i\n", i);
             error_die("Error creating menu item");
             break;
           }
@@ -215,7 +224,7 @@ int setup_menu(page *p) {
   keypad(stdscr, TRUE);
   noecho();
 
-  // create the menu
+  // menu creation
   menu = new_menu(items);
   set_menu_format(menu, n_items, 1);
   set_menu_mark(menu, " ");
@@ -223,11 +232,11 @@ int setup_menu(page *p) {
   refresh();
 
   int selected_cmd = 0;
-  int c ;  // keycode stored here
+  int c;  // keycode stored here
   int end = 0;
   
   // menu key actions
-  while(end == 0) {
+  while(!end) {
     c = wgetch(stdscr);
     switch(c) { 
         case KEY_DOWN:
@@ -238,7 +247,7 @@ int setup_menu(page *p) {
             break;
         case KEY_RIGHT: {
             int index = item_index(current_item(menu));
-            char *n_title = p->commands[index];
+            char *n_title = parsed_page.commands[index];
             items[index] = new_item(n_title, "");
             unpost_menu(menu);
             set_menu_items(menu, items);
@@ -248,7 +257,7 @@ int setup_menu(page *p) {
             break; }
         case KEY_LEFT: {
             int index = item_index(current_item(menu));
-            char *n_title = p->descriptions[index];
+            char *n_title = parsed_page.descriptions[index];
             items[index] = new_item(n_title, "");
             unpost_menu(menu);
             set_menu_items(menu, items);
@@ -260,14 +269,14 @@ int setup_menu(page *p) {
             selected_cmd = -1;
             end = 1;
             break;
-        case 0xA:   // enter
+        case 0xA:    // enter
             selected_cmd = item_index(current_item(menu));
             end = 1;
             break;
     }
   } 
 
-  // cleanup the menu
+  // menu cleanup
   unpost_menu(menu);
   free_menu(menu);
   int n;
@@ -282,16 +291,25 @@ int setup_menu(page *p) {
 
 
 
-////////////////////////////////
-//                            //   
-//       HELPER FUNCTIONS     //
-//                            //
-//                            //
-////////////////////////////////
+
+
+void dump_page(int a, int b, int mode) {
+  int i;
+  if (mode == 0 || mode == 2) {
+    for (i = a; i <= b; i++) {
+      printf("%i: \"%s\"\n", i, parsed_page.descriptions[i]);
+    }
+  }
+  if (mode == 1 || mode == 2) {
+    for (i = a; i <= b; i++) {
+      printf("%i: \"%s\"\n", i, parsed_page.commands[i]);
+    }
+  } 
+}
+
 
 
 char *substr(char *input, int offset, int len, char *dest) {
-  
   int input_len = strlen(input);
   if (offset + len > input_len) {
      return 0;
@@ -299,6 +317,7 @@ char *substr(char *input, int offset, int len, char *dest) {
   strncpy(dest, input + offset, len);
   return dest;
 }
+
 
 
 void print_usage(char *arg0) {
