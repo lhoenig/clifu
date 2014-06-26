@@ -1,22 +1,20 @@
 clifu
 =====
 
-Interface to the commandlinefu.com API, written in C and using Ncurses
-
-BETA - there is still a memory bug in the parse_page_content function. Filling up the results array is not reliable yet. Will investigate very soon.
+Command line interface for commandlinefu.com, written in C and using curses
   
-## Requirements  
+## Dependecies  
 * curl
-* ncurses (on Linux: libncurses5-dev package)
+* ncurses
 * gcc
 
 ## Building  
   
-`make && sudo make install`  
+`make` `make debug`  
   
 ## Usage  
 
-`clifu sed`  
+`./fu sed`  
   
-Will query commandlinefu.com for all commands matching "sed" and show the results in an Ncurses menu.  
-Press left or right to toggle between description and command, enter to quit and print the full command.  
+Will query commandlinefu.com for all commands matching "sed" and show the results in a curses menu.  
+Press left or right to toggle between description and command, enter to leave and print the full command.  
