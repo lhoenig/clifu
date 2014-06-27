@@ -1,7 +1,8 @@
 clifu
 =====
 
-Command line interface for commandlinefu.com, written in C and using curses.
+Command line interface for commandlinefu.com, written in C and using curses.  
+Allows you to get some prompt inspiration where you need it, whithout leaving the terminal.
   
 ## Dependencies  
 * curl
@@ -18,4 +19,4 @@ Command line interface for commandlinefu.com, written in C and using curses.
 `./fu sed`  
   
 Will query commandlinefu.com for all commands matching "sed" and show the results in a curses menu.  
-Press left or right to toggle between description and command, enter to leave and print the full command.  
+Press left or right to toggle between description and command preview, enter to select and print the full command.  
