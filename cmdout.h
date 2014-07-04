@@ -15,26 +15,27 @@ char *command_output(char *cmd, int cut) {
   FILE *pipe = popen(cmd, "r");
   if (!pipe) error_die("Failed to open pipe");
 
-  char *tmp = malloc(1);
-  char *c = malloc(1);
-  int b_read = 0;
-  int t_read = 0;
+  char *line = NULL;
+  char *c = NULL;
+  ssize_t len = 0;
+  ssize_t total_bytes = 0;
   size_t cap = 0;
 
   // read output line by line
-  while ((b_read = getline(&tmp, &cap, pipe)) != -1) {
-      t_read += b_read;
-      c = realloc(c, t_read + 1);
-      if (!c) error_die("realloc failed");
-      strncat(c, tmp, t_read - strlen(c));
+  while ((len = getline(&line, &cap, pipe)) > 0) {
+      total_bytes += len;
+      c = realloc(c, total_bytes + 1);
+      if (!c) error_die("realloc error");
+      memset(c + (total_bytes - len), 0, len + 1);
+      strncat(c, line, len);
   }
   pclose(pipe);
 
   // cut off last character (newline)
-  if (cut == STRIP) 
+  if (cut == STRIP) {
     c[strlen(c) - 1] = '\0';
-  
-  free(tmp);
+  }
+  free(line);
   return c;
 }
 

@@ -55,6 +55,7 @@ int main(int argc, char *argv[]) {
     parse_page(content);
 
     if (parsed_page.entries > 0) {  
+      
       int sel_cmd = setup_menu();
       
       if (sel_cmd != -1)
@@ -143,49 +144,54 @@ void parse_page(const char *to_match) {
     
     regex_t r;                              // regex object
     const char *expr = "(#.+\n)(.+)";       // single entry representation
-    
+
+    const char *p = to_match;   // points to the end of the previous match
+    int c = 0;                  // number of matches
+    int end = 0;                // loop flag
+
     // compile regex and check success
     int ret_comp = regcomp(&r, expr, REG_EXTENDED|REG_NEWLINE);
     if (ret_comp) error_die("Could not compile regex");
 
-    const char *p = to_match;   // 'p' is a pointer into the string which points to the end of the previous match
-    regmatch_t m[3];            // pmatch array     
-    int c = 0;                  // number of matches
-
-    while (c < MAX_ENTRIES && (regexec(&r, p, 3, m, 0) != REG_NOMATCH)) {
+    while (!end) {
       
-      if (m[0].rm_so == -1) continue;
+      regmatch_t m[3];            // pmatch array     
       
-      for (int i = 1; i <= 2; i++) {
+      if (c < MAX_ENTRIES && (regexec(&r, p, 3, m, 0) != REG_NOMATCH)) {
+      
+        if (m[0].rm_so == -1) continue;
         
-        // extract matched substring
-        int start = m[i].rm_so + (p - to_match);
-        int finish = m[i].rm_eo + (p - to_match);
-        int len = (finish - start);
-        const char *fstring = to_match + start;
-        
-        char *match_str = malloc(len + 1);
-        memset(match_str, 0, len + 1);
-        strncpy(match_str, fstring, len);
-        match_str[len] = '\0';
+        for (int i = 1; i <= 2; i++) {
+          
+          // extract matched substring
+          int start = m[i].rm_so + (p - to_match);
+          int finish = m[i].rm_eo + (p - to_match);
+          int len = (finish - start);
+          const char *fstring = to_match + start;
+          
+          char *match_str = malloc(len + 1);
+          memset(match_str, 0, len + 1);
+          strncpy(match_str, fstring, len);
+          match_str[len] = '\0';
 
-        
-        if (i == 1) {       // description       
-          int len = strlen(match_str) - 3;
-          char *remove_front = malloc(len + 1);
-          memset(remove_front, 0, len + 1);
-          strncpy(remove_front, match_str + 2, len);
-          remove_front[len + 1] = '\0';
-          parsed_page.descriptions[c] = remove_front;
+          if (i == 1) {       // description       
+            int len = strlen(match_str) - 3;
+            char *remove_front = malloc(len + 1);
+            memset(remove_front, 0, len + 1);
+            strncpy(remove_front, match_str + 2, len);
+            remove_front[len + 1] = '\0';
+            parsed_page.descriptions[c] = remove_front;
+          }
+          else if (i == 2) {  // command 
+            // TODO check if entry is already contained
+            parsed_page.commands[c] = match_str;     
+          }
         }
-        else if (i == 2) {  // command 
-          // TODO check if entry is already contained
-          parsed_page.commands[c] = match_str;     
-        }
+        p += m[0].rm_eo;  // advance string pointer
+        c++;
       }
-      p += m[0].rm_eo;  // advance string pointer
-      c++;
-    }        
+      else end = 1;
+    }
     regfree(&r);
     parsed_page.entries = c;
 }
