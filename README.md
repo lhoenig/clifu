@@ -18,5 +18,5 @@ Allows you to get some prompt inspiration where you need it, whithout leaving th
 
 `./fu sed`  
   
-Will query commandlinefu.com for all commands matching "sed" and show the results in a curses menu.  
+Will query commandlinefu.com for commands (at this time only the first 25) matching "sed" and show the results in a curses menu.  
 Press left or right to toggle between description and command preview, enter to select and print the full command.  
